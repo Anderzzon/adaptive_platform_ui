@@ -31,27 +31,43 @@ class ToolbarBackdrop extends StatelessWidget {
     AdaptiveScrollEdgeEffectStyle.none => const SizedBox.shrink(),
     AdaptiveScrollEdgeEffectStyle.soft =>
       titleOnly ? const DuoTitleBackdrop() : const _SoftBackdrop(),
-    AdaptiveScrollEdgeEffectStyle.hard => IgnorePointer(
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: CupertinoColors.systemBackground
-                  .resolveFrom(context)
-                  .withValues(alpha: 0.82),
-              border: Border(
-                bottom: BorderSide(
-                  color: CupertinoColors.separator.resolveFrom(context),
-                  width: 0,
+    AdaptiveScrollEdgeEffectStyle.hard => const _HardBackdrop(),
+  };
+}
+
+class _HardBackdrop extends StatelessWidget {
+  const _HardBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    final background = CupertinoColors.systemBackground.resolveFrom(context);
+    final separator = CupertinoColors.separator.resolveFrom(context);
+    return IgnorePointer(
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Extend only the paint below the controls. The bar still supplies
+          // its usual content inset, and the exposed strip is scrollable.
+          Positioned.fill(
+            bottom: -12,
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: background.withValues(alpha: 0.90),
+                    border: Border(
+                      bottom: BorderSide(color: separator, width: 0),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
-    ),
-  };
+    );
+  }
 }
 
 /// The soft gradient that keeps the bar readable over scrolling content.

@@ -23,6 +23,10 @@ void main() {
   const hard = AdaptiveScrollEdgeEffectStyle.hard;
   const soft = AdaptiveScrollEdgeEffectStyle.soft;
   final backdrop = find.byType(ToolbarBackdrop);
+  final blur = find.descendant(
+    of: backdrop,
+    matching: find.byType(BackdropFilter),
+  );
 
   test('the default is soft and copyWith preserves an explicit style', () {
     const bar = AdaptiveAppBar();
@@ -52,6 +56,7 @@ void main() {
       addTearDown(style.dispose);
       addTearDown(scroll.dispose);
       var taps = 0;
+      var listTaps = 0;
       await tester.pumpWidget(
         hostedApp(
           home: ValueListenableBuilder(
@@ -69,7 +74,13 @@ void main() {
               ),
               body: ListView(
                 controller: scroll,
-                children: const [SizedBox(height: 3000)],
+                children: [
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => listTaps++,
+                    child: const SizedBox(height: 3000),
+                  ),
+                ],
               ),
             ),
           ),
@@ -90,18 +101,20 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.widget<ToolbarBackdrop>(backdrop).style, hard);
       expect(tester.widget<ToolbarBackdrop>(backdrop).titleOnly, duo);
-      final blur = find.descendant(
-        of: backdrop,
-        matching: find.byType(BackdropFilter),
+      final band = tester.getRect(backdrop);
+      expect(band.bottom, duo ? 70 : 106);
+      expect(
+        tester.getRect(blur),
+        Rect.fromLTRB(band.left, band.top, band.right, band.bottom + 12),
       );
-      expect(tester.getRect(blur).bottom, duo ? 70 : 106);
       final box = tester.widget<DecoratedBox>(
         find.descendant(of: blur, matching: find.byType(DecoratedBox)),
       );
-      expect(
-        ((box.decoration as BoxDecoration).border! as Border).bottom.width,
-        0,
-      );
+      final decoration = box.decoration as BoxDecoration;
+      expect(decoration.color!.a, closeTo(0.90, 0.001));
+      expect((decoration.border! as Border).bottom.width, 0);
+      await tester.tapAt(band.bottomCenter + const Offset(0, 6));
+      expect(listTaps, 1);
       expect(scroll.offset, 140);
       scroll.jumpTo(0);
       await tester.pumpAndSettle();
@@ -227,6 +240,7 @@ void main() {
               w.viewType == 'adaptive_platform_ui/ios26_toolbar',
         );
         final view = tester.element(native);
+        final controls = tester.getRect(native);
         expect(
           (tester.widget<UiKitView>(native).creationParams
               as Map)['showsGradient'],
@@ -247,6 +261,8 @@ void main() {
         style.value = hard;
         await tester.pumpAndSettle();
         expect(backdrop, findsOneWidget);
+        expect(tester.getRect(native), controls);
+        expect(tester.getRect(blur).bottom, controls.bottom + 12);
         expect(tester.element(native), same(view));
         style.value = none;
         await tester.pumpAndSettle();

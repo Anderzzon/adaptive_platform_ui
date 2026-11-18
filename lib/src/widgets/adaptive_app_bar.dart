@@ -6,7 +6,8 @@ enum AdaptiveScrollEdgeEffectStyle {
   /// Fade into the page below the toolbar.
   soft,
 
-  /// Show a tinted blur and a hairline when content scrolls under the toolbar.
+  /// When content scrolls under the toolbar, show a tinted blur with a
+  /// hairline 12 points below the toolbar's bottom edge.
   hard,
 
   /// Keep the page visible behind the title and Liquid Glass controls.
