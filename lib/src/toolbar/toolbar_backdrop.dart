@@ -41,8 +41,8 @@ class _HardBackdrop extends StatelessWidget {
   // Fixed distances from the lower edge keep the falloff the same on a
   // short Duo title band and on a phone with a tall status bar.
   static const _falloff = [
-    (height: 10.0, sigma: 3.2, top: 0.96, bottom: 0.91),
-    (height: 10.0, sigma: 1.85, top: 0.91, bottom: 0.78),
+    (height: 10.0, sigma: 2.0, top: 0.80, bottom: 0.79),
+    (height: 10.0, sigma: 1.55, top: 0.79, bottom: 0.78),
     (height: 7.0, sigma: 1.05, top: 0.78, bottom: 0.52),
     (height: 5.0, sigma: 0.55, top: 0.52, bottom: 0.30),
   ];
@@ -50,7 +50,8 @@ class _HardBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final background = CupertinoColors.systemBackground.resolveFrom(context);
-    final separator = CupertinoColors.separator.resolveFrom(context);
+    final separator = CupertinoColors.opaqueSeparator.resolveFrom(context);
+    final pixel = 1 / MediaQuery.devicePixelRatioOf(context);
     return IgnorePointer(
       child: Stack(
         clipBehavior: Clip.none,
@@ -64,7 +65,9 @@ class _HardBackdrop extends StatelessWidget {
                 position: DecorationPosition.foreground,
                 decoration: BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(color: separator, width: 0),
+                    // A zero-width stroke sits on the clip boundary. Place
+                    // the entire physical pixel inside the backdrop.
+                    bottom: BorderSide(color: separator, width: pixel),
                   ),
                 ),
                 child: BackdropGroup(
@@ -73,7 +76,7 @@ class _HardBackdrop extends StatelessWidget {
                     children: [
                       Expanded(
                         child: _blur(
-                          5,
+                          2.4,
                           ColoredBox(
                             color: background.withValues(
                               alpha: _falloff.first.top,

@@ -29,7 +29,7 @@ void main() {
     matching: find.byWidgetPredicate((w) {
       if (w is! DecoratedBox || w.decoration is! BoxDecoration) return false;
       final border = (w.decoration as BoxDecoration).border;
-      return border is Border && border.bottom.width == 0;
+      return border is Border && border.bottom.style == BorderStyle.solid;
     }),
   );
 
@@ -44,10 +44,14 @@ void main() {
     );
   });
 
+  final pixelRatios = ValueVariant<int>({2, 3});
   for (final appearance in Brightness.values) {
     testWidgets(
       'hard edge progressively obscures detail in ${appearance.name}',
       (tester) async {
+        final scale = pixelRatios.currentValue!;
+        tester.view.devicePixelRatio = scale.toDouble();
+        addTearDown(tester.view.resetDevicePixelRatio);
         final ink = appearance == Brightness.light
             ? Colors.black
             : Colors.white;
@@ -98,28 +102,39 @@ void main() {
         await tester.runAsync(() async {
           final image = await tester
               .renderObject<RenderRepaintBoundary>(find.byKey(boundary))
-              .toImage();
+              .toImage(pixelRatio: scale.toDouble());
           try {
             final pixels = (await image.toByteData())!;
-            int level(int x, int y) =>
+            int pixel(int x, int y) =>
                 pixels.getUint8(4 * (y * image.width + x));
+            int level(int x, int y) => pixel(x * scale, y * scale);
             int toneRange(int y) => (level(12, y) - level(108, y)).abs();
             int detail(int y) => (level(46, y) - level(50, y)).abs();
             // The solid fields measure tint. Normalizing the fine stripes by
             // that contrast measures the blur independently of the tint.
-            expect(toneRange(60), lessThan(24));
-            expect(toneRange(98), greaterThan(toneRange(60)));
-            expect(toneRange(115), greaterThan(toneRange(98)));
+            expect(toneRange(60), inInclusiveRange(45, 57));
+            expect(detail(60), greaterThan(4));
+            expect(toneRange(108), greaterThan(toneRange(60) + 12));
+            expect(toneRange(115), greaterThan(toneRange(108)));
             double strokeContrast(int y) => detail(y) / toneRange(y);
             expect(strokeContrast(98), greaterThan(strokeContrast(60) + 0.10));
             expect(strokeContrast(98), lessThan(strokeContrast(115) - 0.15));
             expect(detail(115), greaterThan(40));
             expect(detail(122), 255);
+            // Only the last physical row is an opaque separator. The row
+            // above it still shows the tinted page and the row below is clear.
+            final bottom = 118 * scale;
+            final line = pixel(12 * scale, bottom - 1);
+            expect(pixel(108 * scale, bottom - 1), line);
+            expect((line - level(108, 122)).abs(), greaterThan(40));
+            expect(pixel(108 * scale, bottom - 2), level(108, 122));
+            expect(pixel(12 * scale, bottom), level(12, 122));
           } finally {
             image.dispose();
           }
         });
       },
+      variant: pixelRatios,
     );
   }
 
