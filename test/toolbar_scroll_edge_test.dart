@@ -109,7 +109,9 @@ void main() {
                 pixels.getUint8(4 * (y * image.width + x));
             int level(int x, int y) => pixel(x * scale, y * scale);
             int toneRange(int y) => (level(12, y) - level(108, y)).abs();
-            int detail(int y) => (level(46, y) - level(50, y)).abs();
+            int stripeDetail(int row) =>
+                (pixel(46 * scale, row) - pixel(50 * scale, row)).abs();
+            int detail(int y) => stripeDetail(y * scale);
             // The solid fields measure tint. Normalizing the fine stripes by
             // that contrast measures the blur independently of the tint.
             expect(toneRange(60), inInclusiveRange(45, 57));
@@ -121,6 +123,19 @@ void main() {
             expect(strokeContrast(98), lessThan(strokeContrast(115) - 0.15));
             expect(detail(115), greaterThan(40));
             expect(detail(122), 255);
+            // Crossing the controls' lower edge (12 pt above the separator)
+            // should change neither the tint slope nor the blur abruptly.
+            final above = toneRange(106) - toneRange(103);
+            final below = toneRange(109) - toneRange(106);
+            expect((above - below).abs(), lessThanOrEqualTo(8));
+            for (var row = 86 * scale + 1; row < 118 * scale - 1; row++) {
+              expect(
+                (stripeDetail(row) - stripeDetail(row - 1)).abs(),
+                lessThanOrEqualTo(8),
+                reason:
+                    'Stroke contrast jumped at row $row on a ${scale}x display',
+              );
+            }
             // Only the last physical row is an opaque separator. The row
             // above it still shows the tinted page and the row below is clear.
             final bottom = 118 * scale;

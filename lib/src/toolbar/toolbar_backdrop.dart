@@ -38,15 +38,6 @@ class ToolbarBackdrop extends StatelessWidget {
 class _HardBackdrop extends StatelessWidget {
   const _HardBackdrop();
 
-  // Fixed distances from the lower edge keep the falloff the same on a
-  // short Duo title band and on a phone with a tall status bar.
-  static const _falloff = [
-    (height: 10.0, sigma: 2.0, top: 0.80, bottom: 0.79),
-    (height: 10.0, sigma: 1.55, top: 0.79, bottom: 0.78),
-    (height: 7.0, sigma: 1.05, top: 0.78, bottom: 0.52),
-    (height: 5.0, sigma: 0.55, top: 0.52, bottom: 0.30),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final background = CupertinoColors.systemBackground.resolveFrom(context);
@@ -70,32 +61,20 @@ class _HardBackdrop extends StatelessWidget {
                     bottom: BorderSide(color: separator, width: pixel),
                   ),
                 ),
-                child: BackdropGroup(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: _blur(
-                          2.4,
-                          ColoredBox(
-                            color: background.withValues(
-                              alpha: _falloff.first.top,
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Each clip samples the same page. The adjacent tints
-                      // meet so the transition is continuous over the text.
-                      for (final band in _falloff)
-                        SizedBox(
-                          height: band.height,
-                          child: _blur(
-                            band.sigma,
-                            _tint(background, band.top, band.bottom),
-                          ),
-                        ),
-                    ],
-                  ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 0.55, sigmaY: 0.55),
+                      child: const SizedBox.expand(),
+                    ),
+                    // Gaussian variances add. Over the lightly blurred page,
+                    // this second pass gives a 2.4-point blur behind the title.
+                    BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 2.34, sigmaY: 2.34),
+                      child: CustomPaint(painter: _HardEdgeFalloff(background)),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -104,26 +83,55 @@ class _HardBackdrop extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _tint(Color color, double top, double bottom) => DecoratedBox(
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          color.withValues(alpha: top),
-          color.withValues(alpha: bottom),
-        ],
-      ),
+class _HardEdgeFalloff extends CustomPainter {
+  _HardEdgeFalloff(Color background)
+    : _tint = _gradient(background, (t) => 0.80 - 0.50 * t * t * t);
+
+  final LinearGradient _tint;
+  static const _height = 32.0;
+  static const _intervals = 16;
+  static final _blurMask = _gradient(
+    const Color(0xFFFFFFFF),
+    (t) => 1 - t * t * (3 - 2 * t),
+  );
+
+  static LinearGradient _gradient(
+    Color color,
+    double Function(double) opacityAt,
+  ) => LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: List.generate(
+      _intervals + 1,
+      (i) => color.withValues(alpha: opacityAt(i / _intervals)),
     ),
   );
 
-  Widget _blur(double sigma, Widget child) => ClipRect(
-    child: BackdropFilter.grouped(
-      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-      child: child,
-    ),
-  );
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    final falloff = Rect.fromLTWH(
+      0,
+      size.height - _height,
+      size.width,
+      _height,
+    );
+    // Mask the filtered backdrop in its own layer. At the bottom the
+    // lightly blurred page shows through. The two blurs crossfade above it.
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..blendMode = BlendMode.dstIn
+        ..shader = _blurMask.createShader(falloff),
+    );
+    canvas.drawRect(bounds, Paint()..shader = _tint.createShader(falloff));
+  }
+
+  @override
+  bool shouldRepaint(_HardEdgeFalloff oldDelegate) =>
+      _tint != oldDelegate._tint;
 }
 
 /// The soft gradient that keeps the bar readable over scrolling content.
