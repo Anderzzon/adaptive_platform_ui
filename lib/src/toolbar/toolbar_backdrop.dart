@@ -38,6 +38,15 @@ class ToolbarBackdrop extends StatelessWidget {
 class _HardBackdrop extends StatelessWidget {
   const _HardBackdrop();
 
+  // Fixed distances from the lower edge keep the falloff the same on a
+  // short Duo title band and on a phone with a tall status bar.
+  static const _falloff = [
+    (height: 10.0, sigma: 3.2, top: 0.96, bottom: 0.91),
+    (height: 10.0, sigma: 1.85, top: 0.91, bottom: 0.78),
+    (height: 7.0, sigma: 1.05, top: 0.78, bottom: 0.52),
+    (height: 5.0, sigma: 0.55, top: 0.52, bottom: 0.30),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final background = CupertinoColors.systemBackground.resolveFrom(context);
@@ -51,14 +60,38 @@ class _HardBackdrop extends StatelessWidget {
           Positioned.fill(
             bottom: -12,
             child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: background.withValues(alpha: 0.90),
-                    border: Border(
-                      bottom: BorderSide(color: separator, width: 0),
-                    ),
+              child: DecoratedBox(
+                position: DecorationPosition.foreground,
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: separator, width: 0),
+                  ),
+                ),
+                child: BackdropGroup(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _blur(
+                          5,
+                          ColoredBox(
+                            color: background.withValues(
+                              alpha: _falloff.first.top,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Each clip samples the same page. The adjacent tints
+                      // meet so the transition is continuous over the text.
+                      for (final band in _falloff)
+                        SizedBox(
+                          height: band.height,
+                          child: _blur(
+                            band.sigma,
+                            _tint(background, band.top, band.bottom),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -68,6 +101,26 @@ class _HardBackdrop extends StatelessWidget {
       ),
     );
   }
+
+  Widget _tint(Color color, double top, double bottom) => DecoratedBox(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          color.withValues(alpha: top),
+          color.withValues(alpha: bottom),
+        ],
+      ),
+    ),
+  );
+
+  Widget _blur(double sigma, Widget child) => ClipRect(
+    child: BackdropFilter.grouped(
+      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+      child: child,
+    ),
+  );
 }
 
 /// The soft gradient that keeps the bar readable over scrolling content.

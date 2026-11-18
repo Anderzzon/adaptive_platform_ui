@@ -2,6 +2,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:adaptive_platform_ui/src/toolbar/toolbar_backdrop.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPageRoute;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,9 +24,13 @@ void main() {
   const hard = AdaptiveScrollEdgeEffectStyle.hard;
   const soft = AdaptiveScrollEdgeEffectStyle.soft;
   final backdrop = find.byType(ToolbarBackdrop);
-  final blur = find.descendant(
+  final hardEdge = find.descendant(
     of: backdrop,
-    matching: find.byType(BackdropFilter),
+    matching: find.byWidgetPredicate((w) {
+      if (w is! DecoratedBox || w.decoration is! BoxDecoration) return false;
+      final border = (w.decoration as BoxDecoration).border;
+      return border is Border && border.bottom.width == 0;
+    }),
   );
 
   test('the default is soft and copyWith preserves an explicit style', () {
@@ -38,6 +43,85 @@ void main() {
       hard,
     );
   });
+
+  for (final appearance in Brightness.values) {
+    testWidgets(
+      'hard edge progressively obscures detail in ${appearance.name}',
+      (tester) async {
+        final ink = appearance == Brightness.light
+            ? Colors.black
+            : Colors.white;
+        final paper = appearance == Brightness.light
+            ? Colors.white
+            : Colors.black;
+        const boundary = Key('scrolling detail');
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(brightness: appearance),
+            home: Align(
+              alignment: Alignment.topLeft,
+              child: RepaintBoundary(
+                key: boundary,
+                child: SizedBox(
+                  width: 120,
+                  height: 140,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(width: 24, child: ColoredBox(color: ink)),
+                          for (var i = 0; i < 16; i++)
+                            SizedBox(
+                              width: 4,
+                              child: ColoredBox(color: i.isEven ? paper : ink),
+                            ),
+                          Expanded(child: ColoredBox(color: paper)),
+                        ],
+                      ),
+                      const Positioned(
+                        left: 0,
+                        right: 0,
+                        top: 0,
+                        height: 106,
+                        child: ToolbarBackdrop(style: hard, titleOnly: false),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.runAsync(() async {
+          final image = await tester
+              .renderObject<RenderRepaintBoundary>(find.byKey(boundary))
+              .toImage();
+          try {
+            final pixels = (await image.toByteData())!;
+            int level(int x, int y) =>
+                pixels.getUint8(4 * (y * image.width + x));
+            int toneRange(int y) => (level(12, y) - level(108, y)).abs();
+            int detail(int y) => (level(46, y) - level(50, y)).abs();
+            // The solid fields measure tint. Normalizing the fine stripes by
+            // that contrast measures the blur independently of the tint.
+            expect(toneRange(60), lessThan(24));
+            expect(toneRange(98), greaterThan(toneRange(60)));
+            expect(toneRange(115), greaterThan(toneRange(98)));
+            double strokeContrast(int y) => detail(y) / toneRange(y);
+            expect(strokeContrast(98), greaterThan(strokeContrast(60) + 0.10));
+            expect(strokeContrast(98), lessThan(strokeContrast(115) - 0.15));
+            expect(detail(115), greaterThan(40));
+            expect(detail(122), 255);
+          } finally {
+            image.dispose();
+          }
+        });
+      },
+    );
+  }
 
   for (final duo in [false, true]) {
     testWidgets('hosted toolbar follows the page scroll position (Duo: $duo)', (
@@ -104,15 +188,9 @@ void main() {
       final band = tester.getRect(backdrop);
       expect(band.bottom, duo ? 70 : 106);
       expect(
-        tester.getRect(blur),
+        tester.getRect(hardEdge),
         Rect.fromLTRB(band.left, band.top, band.right, band.bottom + 12),
       );
-      final box = tester.widget<DecoratedBox>(
-        find.descendant(of: blur, matching: find.byType(DecoratedBox)),
-      );
-      final decoration = box.decoration as BoxDecoration;
-      expect(decoration.color!.a, closeTo(0.90, 0.001));
-      expect((decoration.border! as Border).bottom.width, 0);
       await tester.tapAt(band.bottomCenter + const Offset(0, 6));
       expect(listTaps, 1);
       expect(scroll.offset, 140);
@@ -262,7 +340,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(backdrop, findsOneWidget);
         expect(tester.getRect(native), controls);
-        expect(tester.getRect(blur).bottom, controls.bottom + 12);
+        expect(tester.getRect(hardEdge).bottom, controls.bottom + 12);
         expect(tester.element(native), same(view));
         style.value = none;
         await tester.pumpAndSettle();
