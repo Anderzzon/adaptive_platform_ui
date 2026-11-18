@@ -1,6 +1,18 @@
 import 'package:flutter/widgets.dart';
 import 'adaptive_app_bar_action.dart';
 
+/// Backdrop behind a native iOS 26+ top toolbar, including the Duo title band.
+enum AdaptiveScrollEdgeEffectStyle {
+  /// Fade into the page below the toolbar.
+  soft,
+
+  /// Show a tinted blur and a hairline when content scrolls under the toolbar.
+  hard,
+
+  /// Keep the page visible behind the title and Liquid Glass controls.
+  none,
+}
+
 /// Configuration for an adaptive app bar
 ///
 /// This class holds the configuration for the app bar in [AdaptiveScaffold].
@@ -23,6 +35,7 @@ class AdaptiveAppBar {
     this.leading,
     this.useNativeToolbar = true,
     this.tintColor,
+    this.scrollEdgeEffectStyle = AdaptiveScrollEdgeEffectStyle.soft,
     this.titleWidget,
     this.cupertinoNavigationBar,
     this.appBar,
@@ -69,6 +82,9 @@ class AdaptiveAppBar {
   /// If null, the system default tint color is used.
   final Color? tintColor;
 
+  /// Backdrop drawn behind the native iOS 26+ toolbar.
+  final AdaptiveScrollEdgeEffectStyle scrollEdgeEffectStyle;
+
   /// Custom CupertinoNavigationBar for iOS
   ///
   /// When provided and [useNativeToolbar] is false, this custom navigation bar will be used
@@ -93,6 +109,7 @@ class AdaptiveAppBar {
     Widget? leading,
     bool? useNativeToolbar,
     Color? tintColor,
+    AdaptiveScrollEdgeEffectStyle? scrollEdgeEffectStyle,
     Widget? titleWidget,
     PreferredSizeWidget? cupertinoNavigationBar,
     PreferredSizeWidget? appBar,
@@ -104,6 +121,8 @@ class AdaptiveAppBar {
       leading: leading ?? this.leading,
       useNativeToolbar: useNativeToolbar ?? this.useNativeToolbar,
       tintColor: tintColor ?? this.tintColor,
+      scrollEdgeEffectStyle:
+          scrollEdgeEffectStyle ?? this.scrollEdgeEffectStyle,
       titleWidget: titleWidget ?? this.titleWidget,
       cupertinoNavigationBar:
           cupertinoNavigationBar ?? this.cupertinoNavigationBar,
