@@ -43,7 +43,7 @@ class _HardBackdrop extends StatelessWidget {
     final dark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final surface = CupertinoColors.systemBackground.resolveFrom(context);
     final separator = dark
-        ? const Color(0x1AFFFFFF)
+        ? const Color(0xFF2B2B2D)
         : CupertinoColors.opaqueSeparator.resolveFrom(context);
     final pixel = 1 / MediaQuery.devicePixelRatioOf(context);
     return IgnorePointer(

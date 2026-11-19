@@ -145,13 +145,8 @@ void main() {
             // The crisp separator occupies only the last physical row.
             final bottom = 118 * scale;
             final line = pixel(12 * scale, bottom - 1);
-            if (appearance == Brightness.dark) {
-              expect(pixel(108 * scale, bottom - 1), 26);
-              expect(line, greaterThan(pixel(12 * scale, bottom - 2)));
-            } else {
-              expect(pixel(108 * scale, bottom - 1), line);
-              expect((line - level(108, 122)).abs(), greaterThan(40));
-            }
+            expect(pixel(108 * scale, bottom - 1), line);
+            expect((line - level(108, 122)).abs(), greaterThan(40));
             expect(pixel(108 * scale, bottom - 2), level(108, 122));
             expect(pixel(12 * scale, bottom), level(12, 122));
           } finally {
@@ -192,8 +187,6 @@ void main() {
                     children: [
                       Expanded(child: ColoredBox(color: Colors.black)),
                       Expanded(child: ColoredBox(color: surface)),
-                      Expanded(child: ColoredBox(color: Color(0xff323232))),
-                      Expanded(child: ColoredBox(color: Color(0xff646469))),
                     ],
                   ),
                   const Positioned(
@@ -220,14 +213,9 @@ void main() {
         int channel(int x, int row, int c) =>
             pixels.getUint8(4 * (row * image.width + x * scale) + c);
         final edge = 118 * scale - 1;
-        // The last two fields produce the native reference's dark margin
-        // (#0A0A0A) and list backdrop (#141415) after the toolbar tint.
-        for (final (x, separator) in [
-          (20, [26, 26, 26]),
-          (60, [33, 35, 34]),
-          (100, [35, 35, 35]),
-          (140, [44, 44, 45]),
-        ]) {
+        // Median sRGB channels of the native separator over list content.
+        const separator = [43, 43, 45];
+        for (final x in [30, 120]) {
           for (var c = 0; c < 3; c++) {
             final page = channel(x, edge + 2, c);
             // Match the old title tint even where the blur clears at the edge.
@@ -240,7 +228,7 @@ void main() {
                     'A blank surface changed brightness at physical row $row',
               );
             }
-            expect(channel(x, edge, c), closeTo(separator[c], 1));
+            expect(channel(x, edge, c), separator[c]);
           }
           expect(channel(x, edge - 1, 3), 255);
         }
