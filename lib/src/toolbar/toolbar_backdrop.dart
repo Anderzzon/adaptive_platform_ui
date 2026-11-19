@@ -42,8 +42,9 @@ class _HardBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final surface = CupertinoColors.systemBackground.resolveFrom(context);
+    // The native dark hairline approximates 10% white over the filtered edge.
     final separator = dark
-        ? const Color(0x23FFFFFF)
+        ? const Color(0x1AFFFFFF)
         : CupertinoColors.opaqueSeparator.resolveFrom(context);
     final pixel = 1 / MediaQuery.devicePixelRatioOf(context);
     return IgnorePointer(
@@ -61,31 +62,26 @@ class _HardBackdrop extends StatelessWidget {
                   bottom: BorderSide(color: separator, width: pixel),
                 ),
               ),
-              // Reserve unfiltered page pixels for the translucent dark line.
-              // Paint it after the blur so its highlight stays on a single row.
-              child: Padding(
-                padding: EdgeInsets.only(bottom: dark ? pixel : 0),
-                child: ClipRect(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 0.55, sigmaY: 0.55),
-                        child: const SizedBox.expand(),
-                      ),
-                      // Gaussian variances add. Over the lightly blurred page,
-                      // this second pass gives a 2.4-point blur behind the title.
-                      BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 2.34, sigmaY: 2.34),
-                        child: CustomPaint(painter: _HardEdgeGradient.blurMask),
-                      ),
-                      if (dark)
-                        CustomPaint(painter: _HardEdgeGradient.darkShadows),
-                      CustomPaint(
-                        painter: _HardEdgeGradient.tint(surface, dark: dark),
-                      ),
-                    ],
-                  ),
+              child: ClipRect(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 0.55, sigmaY: 0.55),
+                      child: const SizedBox.expand(),
+                    ),
+                    // Gaussian variances add. Over the lightly blurred page,
+                    // this second pass gives a 2.4-point blur behind the title.
+                    BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 2.34, sigmaY: 2.34),
+                      child: CustomPaint(painter: _HardEdgeGradient.blurMask),
+                    ),
+                    if (dark)
+                      CustomPaint(painter: _HardEdgeGradient.darkShadows),
+                    CustomPaint(
+                      painter: _HardEdgeGradient.tint(surface, dark: dark),
+                    ),
+                  ],
                 ),
               ),
             ),

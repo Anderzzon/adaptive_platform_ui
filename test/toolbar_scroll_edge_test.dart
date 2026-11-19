@@ -146,8 +146,11 @@ void main() {
             final bottom = 118 * scale;
             final line = pixel(12 * scale, bottom - 1);
             if (appearance == Brightness.dark) {
-              expect(pixel(108 * scale, bottom - 1), 35);
-              expect(line, 255);
+              expect(pixel(108 * scale, bottom - 1), 26);
+              expect(
+                line,
+                inExclusiveRange(pixel(12 * scale, bottom - 2), 255),
+              );
             } else {
               expect(pixel(108 * scale, bottom - 1), line);
               expect((line - level(108, 122)).abs(), greaterThan(40));
@@ -163,20 +166,16 @@ void main() {
     );
   }
 
-  testWidgets('the dark hairline stands out against the scrolling surface', (
+  testWidgets('the dark hairline blends with the filtered backdrop', (
     tester,
   ) async {
-    const surface = Color(0xff28302e);
     const key = Key('blank dark surface');
     final scale = pixelRatios.currentValue!;
     tester.view.devicePixelRatio = scale.toDouble();
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: surface,
-        ),
+        theme: ThemeData.dark(),
         home: Align(
           alignment: Alignment.topLeft,
           child: RepaintBoundary(
@@ -191,8 +190,8 @@ void main() {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(child: ColoredBox(color: Colors.black)),
-                      Expanded(child: ColoredBox(color: Color(0xff1c1c1e))),
-                      Expanded(child: ColoredBox(color: surface)),
+                      Expanded(child: ColoredBox(color: Color(0xff404040))),
+                      Expanded(child: ColoredBox(color: Color(0xff204060))),
                     ],
                   ),
                   const Positioned(
@@ -222,7 +221,7 @@ void main() {
         for (final x in [25, 80, 135]) {
           for (var c = 0; c < 3; c++) {
             final page = channel(x, edge + 2, c);
-            // Match the old title tint even where the blur clears at the edge.
+            // A flat dark field keeps its tone as the blur clears.
             final dimmed = 0.2 * page;
             for (var row = 76 * scale; row < edge; row++) {
               expect(
@@ -232,11 +231,12 @@ void main() {
                     'A blank surface changed brightness at physical row $row',
               );
             }
-            final line = channel(x, edge, c);
-            // Compare with the unfiltered page below. A fixed gray can blend
-            // into a dark list even when it separates clearly from the bar.
-            expect(line - page, inInclusiveRange(25, 36));
-            expect(line, greaterThan(channel(x, edge - 1, c)));
+            final backdrop = channel(x, edge - 1, c);
+            expect(
+              channel(x, edge, c),
+              closeTo(backdrop + 0.10 * (255 - backdrop), 2),
+            );
+            expect(channel(x, edge + 1, c), page);
           }
           expect(channel(x, edge - 1, 3), 255);
         }
