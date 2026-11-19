@@ -118,6 +118,12 @@ void main() {
             expect(detail(60), greaterThan(4));
             expect(toneRange(108), greaterThan(toneRange(60) + 12));
             expect(toneRange(115), greaterThan(toneRange(108)));
+            // Two points above the separator, less of the bright page shows
+            // through in dark mode. The title contrast is checked above.
+            final expectedLowerContrast = appearance == Brightness.dark
+                ? 137
+                : 158;
+            expect(toneRange(116), closeTo(expectedLowerContrast, 5));
             double strokeContrast(int y) => detail(y) / toneRange(y);
             expect(strokeContrast(98), greaterThan(strokeContrast(60) + 0.10));
             expect(strokeContrast(98), lessThan(strokeContrast(115) - 0.15));

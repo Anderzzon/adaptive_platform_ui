@@ -41,6 +41,8 @@ class _HardBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final background = CupertinoColors.systemBackground.resolveFrom(context);
+    final bottomOpacity =
+        CupertinoTheme.brightnessOf(context) == Brightness.dark ? 0.40 : 0.30;
     final separator = CupertinoColors.opaqueSeparator.resolveFrom(context);
     final pixel = 1 / MediaQuery.devicePixelRatioOf(context);
     return IgnorePointer(
@@ -72,7 +74,9 @@ class _HardBackdrop extends StatelessWidget {
                     // this second pass gives a 2.4-point blur behind the title.
                     BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 2.34, sigmaY: 2.34),
-                      child: CustomPaint(painter: _HardEdgeFalloff(background)),
+                      child: CustomPaint(
+                        painter: _HardEdgeFalloff(background, bottomOpacity),
+                      ),
                     ),
                   ],
                 ),
@@ -86,10 +90,14 @@ class _HardBackdrop extends StatelessWidget {
 }
 
 class _HardEdgeFalloff extends CustomPainter {
-  _HardEdgeFalloff(Color background)
-    : _tint = _gradient(background, (t) => 0.80 - 0.50 * t * t * t);
+  _HardEdgeFalloff(Color background, double bottomOpacity)
+    : _tint = _gradient(
+        background,
+        (t) => _topOpacity + (bottomOpacity - _topOpacity) * t * t * t,
+      );
 
   final LinearGradient _tint;
+  static const _topOpacity = 0.80;
   static const _height = 32.0;
   static const _intervals = 16;
   static final _blurMask = _gradient(
