@@ -40,10 +40,11 @@ class _HardBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background = CupertinoColors.systemBackground.resolveFrom(context);
-    final bottomOpacity =
-        CupertinoTheme.brightnessOf(context) == Brightness.dark ? 0.40 : 0.30;
-    final separator = CupertinoColors.opaqueSeparator.resolveFrom(context);
+    final dark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
+    final surface = CupertinoColors.systemBackground.resolveFrom(context);
+    final separator = dark
+        ? const Color(0x99000000)
+        : CupertinoColors.opaqueSeparator.resolveFrom(context);
     final pixel = 1 / MediaQuery.devicePixelRatioOf(context);
     return IgnorePointer(
       child: Stack(
@@ -74,9 +75,12 @@ class _HardBackdrop extends StatelessWidget {
                     // this second pass gives a 2.4-point blur behind the title.
                     BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 2.34, sigmaY: 2.34),
-                      child: CustomPaint(
-                        painter: _HardEdgeFalloff(background, bottomOpacity),
-                      ),
+                      child: CustomPaint(painter: _HardEdgeGradient.blurMask),
+                    ),
+                    if (dark)
+                      CustomPaint(painter: _HardEdgeGradient.darkShadows),
+                    CustomPaint(
+                      painter: _HardEdgeGradient.tint(surface, dark: dark),
                     ),
                   ],
                 ),
@@ -89,20 +93,43 @@ class _HardBackdrop extends StatelessWidget {
   }
 }
 
-class _HardEdgeFalloff extends CustomPainter {
-  _HardEdgeFalloff(Color background, double bottomOpacity)
-    : _tint = _gradient(
-        background,
-        (t) => _topOpacity + (bottomOpacity - _topOpacity) * t * t * t,
+class _HardEdgeGradient extends CustomPainter {
+  const _HardEdgeGradient(this.gradient, this.blendMode);
+
+  factory _HardEdgeGradient.tint(Color surface, {required bool dark}) =>
+      _HardEdgeGradient(
+        _gradient(
+          surface,
+          (t) => 1 - _transmission(t, dark ? _darkEdgeTransmission : 0.70),
+        ),
+        BlendMode.srcOver,
       );
 
-  final LinearGradient _tint;
-  static const _topOpacity = 0.80;
+  final LinearGradient gradient;
+  final BlendMode blendMode;
   static const _height = 32.0;
   static const _intervals = 16;
-  static final _blurMask = _gradient(
-    const Color(0xFFFFFFFF),
-    (t) => 1 - t * t * (3 - 2 * t),
+  static const _titleTransmission = 0.20;
+  static const _darkEdgeTransmission = 0.60;
+
+  static double _transmission(double t, double atEdge) =>
+      _titleTransmission + (atEdge - _titleTransmission) * t * t * t;
+
+  // Black in overlay mode darkens shadows and preserves white. As the tint
+  // clears, compensate for exactly that change on dark pixels so an empty
+  // surface keeps its tone all the way from the title to the separator.
+  static final darkShadows = _HardEdgeGradient(
+    _gradient(
+      const Color(0xFF000000),
+      (t) => 1 - _titleTransmission / _transmission(t, _darkEdgeTransmission),
+    ),
+    BlendMode.overlay,
+  );
+
+  // Applied inside the stronger blur layer so both blurs crossfade.
+  static final blurMask = _HardEdgeGradient(
+    _gradient(const Color(0xFFFFFFFF), (t) => 1 - t * t * (3 - 2 * t)),
+    BlendMode.dstIn,
   );
 
   static LinearGradient _gradient(
@@ -119,27 +146,23 @@ class _HardEdgeFalloff extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final bounds = Offset.zero & size;
     final falloff = Rect.fromLTWH(
       0,
       size.height - _height,
       size.width,
       _height,
     );
-    // Mask the filtered backdrop in its own layer. At the bottom the
-    // lightly blurred page shows through. The two blurs crossfade above it.
     canvas.drawRect(
-      bounds,
+      Offset.zero & size,
       Paint()
-        ..blendMode = BlendMode.dstIn
-        ..shader = _blurMask.createShader(falloff),
+        ..blendMode = blendMode
+        ..shader = gradient.createShader(falloff),
     );
-    canvas.drawRect(bounds, Paint()..shader = _tint.createShader(falloff));
   }
 
   @override
-  bool shouldRepaint(_HardEdgeFalloff oldDelegate) =>
-      _tint != oldDelegate._tint;
+  bool shouldRepaint(_HardEdgeGradient oldDelegate) =>
+      gradient != oldDelegate.gradient || blendMode != oldDelegate.blendMode;
 }
 
 /// The soft gradient that keeps the bar readable over scrolling content.

@@ -142,12 +142,16 @@ void main() {
                     'Stroke contrast jumped at row $row on a ${scale}x display',
               );
             }
-            // Only the last physical row is an opaque separator. The row
-            // above it still shows the tinted page and the row below is clear.
+            // The crisp separator occupies only the last physical row.
             final bottom = 118 * scale;
             final line = pixel(12 * scale, bottom - 1);
-            expect(pixel(108 * scale, bottom - 1), line);
-            expect((line - level(108, 122)).abs(), greaterThan(40));
+            if (appearance == Brightness.dark) {
+              expect(pixel(108 * scale, bottom - 1), 0);
+              expect(line, lessThan(pixel(12 * scale, bottom - 2) - 40));
+            } else {
+              expect(pixel(108 * scale, bottom - 1), line);
+              expect((line - level(108, 122)).abs(), greaterThan(40));
+            }
             expect(pixel(108 * scale, bottom - 2), level(108, 122));
             expect(pixel(12 * scale, bottom), level(12, 122));
           } finally {
@@ -158,6 +162,85 @@ void main() {
       variant: pixelRatios,
     );
   }
+
+  testWidgets('empty dark areas stay even through the hard edge', (
+    tester,
+  ) async {
+    const surface = Color(0xff28302e);
+    const key = Key('blank dark surface');
+    final scale = pixelRatios.currentValue!;
+    tester.view.devicePixelRatio = scale.toDouble();
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: surface,
+        ),
+        home: Align(
+          alignment: Alignment.topLeft,
+          child: RepaintBoundary(
+            key: key,
+            child: SizedBox(
+              width: 160,
+              height: 140,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: ColoredBox(color: Colors.black)),
+                      Expanded(child: ColoredBox(color: surface)),
+                    ],
+                  ),
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    height: 106,
+                    child: ToolbarBackdrop(style: hard, titleOnly: false),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      final image = await tester
+          .renderObject<RenderRepaintBoundary>(find.byKey(key))
+          .toImage(pixelRatio: scale.toDouble());
+      try {
+        final pixels = (await image.toByteData())!;
+        int channel(int x, int row, int c) =>
+            pixels.getUint8(4 * (row * image.width + x * scale) + c);
+        final edge = 118 * scale - 1;
+        for (final x in [30, 120]) {
+          for (var c = 0; c < 3; c++) {
+            final page = channel(x, edge + 2, c);
+            // Match the old title tint even where the blur clears at the edge.
+            final dimmed = 0.2 * page;
+            for (var row = 76 * scale; row < edge; row++) {
+              expect(
+                channel(x, row, c),
+                closeTo(dimmed, 2),
+                reason:
+                    'A blank surface changed brightness at physical row $row',
+              );
+            }
+            expect(channel(x, edge, c), lessThanOrEqualTo(dimmed));
+            if (page != 0) expect(channel(x, edge, c), lessThan(dimmed - 2));
+          }
+          expect(channel(x, edge - 1, 3), 255);
+        }
+      } finally {
+        image.dispose();
+      }
+    });
+  }, variant: pixelRatios);
 
   for (final duo in [false, true]) {
     testWidgets('hosted toolbar follows the page scroll position (Duo: $duo)', (
