@@ -145,8 +145,13 @@ void main() {
             // The crisp separator occupies only the last physical row.
             final bottom = 118 * scale;
             final line = pixel(12 * scale, bottom - 1);
-            expect(pixel(108 * scale, bottom - 1), line);
-            expect((line - level(108, 122)).abs(), greaterThan(40));
+            if (appearance == Brightness.dark) {
+              expect(pixel(108 * scale, bottom - 1), 35);
+              expect(line, 255);
+            } else {
+              expect(pixel(108 * scale, bottom - 1), line);
+              expect((line - level(108, 122)).abs(), greaterThan(40));
+            }
             expect(pixel(108 * scale, bottom - 2), level(108, 122));
             expect(pixel(12 * scale, bottom), level(12, 122));
           } finally {
@@ -158,7 +163,7 @@ void main() {
     );
   }
 
-  testWidgets('empty dark areas stay even through the hard edge', (
+  testWidgets('the dark hairline stands out against the scrolling surface', (
     tester,
   ) async {
     const surface = Color(0xff28302e);
@@ -186,6 +191,7 @@ void main() {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(child: ColoredBox(color: Colors.black)),
+                      Expanded(child: ColoredBox(color: Color(0xff1c1c1e))),
                       Expanded(child: ColoredBox(color: surface)),
                     ],
                   ),
@@ -213,9 +219,7 @@ void main() {
         int channel(int x, int row, int c) =>
             pixels.getUint8(4 * (row * image.width + x * scale) + c);
         final edge = 118 * scale - 1;
-        // Median sRGB channels of the native separator over list content.
-        const separator = [43, 43, 45];
-        for (final x in [30, 120]) {
+        for (final x in [25, 80, 135]) {
           for (var c = 0; c < 3; c++) {
             final page = channel(x, edge + 2, c);
             // Match the old title tint even where the blur clears at the edge.
@@ -228,7 +232,11 @@ void main() {
                     'A blank surface changed brightness at physical row $row',
               );
             }
-            expect(channel(x, edge, c), separator[c]);
+            final line = channel(x, edge, c);
+            // Compare with the unfiltered page below. A fixed gray can blend
+            // into a dark list even when it separates clearly from the bar.
+            expect(line - page, inInclusiveRange(25, 36));
+            expect(line, greaterThan(channel(x, edge - 1, c)));
           }
           expect(channel(x, edge - 1, 3), 255);
         }

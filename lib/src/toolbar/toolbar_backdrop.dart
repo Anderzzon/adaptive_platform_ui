@@ -43,7 +43,7 @@ class _HardBackdrop extends StatelessWidget {
     final dark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final surface = CupertinoColors.systemBackground.resolveFrom(context);
     final separator = dark
-        ? const Color(0xFF2B2B2D)
+        ? const Color(0x23FFFFFF)
         : CupertinoColors.opaqueSeparator.resolveFrom(context);
     final pixel = 1 / MediaQuery.devicePixelRatioOf(context);
     return IgnorePointer(
@@ -54,35 +54,38 @@ class _HardBackdrop extends StatelessWidget {
           // its usual content inset, and the exposed strip is scrollable.
           Positioned.fill(
             bottom: -12,
-            child: ClipRect(
-              child: DecoratedBox(
-                position: DecorationPosition.foreground,
-                decoration: BoxDecoration(
-                  border: Border(
-                    // A zero-width stroke sits on the clip boundary. Place
-                    // the entire physical pixel inside the backdrop.
-                    bottom: BorderSide(color: separator, width: pixel),
-                  ),
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: separator, width: pixel),
                 ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 0.55, sigmaY: 0.55),
-                      child: const SizedBox.expand(),
-                    ),
-                    // Gaussian variances add. Over the lightly blurred page,
-                    // this second pass gives a 2.4-point blur behind the title.
-                    BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 2.34, sigmaY: 2.34),
-                      child: CustomPaint(painter: _HardEdgeGradient.blurMask),
-                    ),
-                    if (dark)
-                      CustomPaint(painter: _HardEdgeGradient.darkShadows),
-                    CustomPaint(
-                      painter: _HardEdgeGradient.tint(surface, dark: dark),
-                    ),
-                  ],
+              ),
+              // Reserve unfiltered page pixels for the translucent dark line.
+              // Paint it after the blur so its highlight stays on a single row.
+              child: Padding(
+                padding: EdgeInsets.only(bottom: dark ? pixel : 0),
+                child: ClipRect(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 0.55, sigmaY: 0.55),
+                        child: const SizedBox.expand(),
+                      ),
+                      // Gaussian variances add. Over the lightly blurred page,
+                      // this second pass gives a 2.4-point blur behind the title.
+                      BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 2.34, sigmaY: 2.34),
+                        child: CustomPaint(painter: _HardEdgeGradient.blurMask),
+                      ),
+                      if (dark)
+                        CustomPaint(painter: _HardEdgeGradient.darkShadows),
+                      CustomPaint(
+                        painter: _HardEdgeGradient.tint(surface, dark: dark),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
